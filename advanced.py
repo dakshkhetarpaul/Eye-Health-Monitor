@@ -3,8 +3,11 @@ import dlib
 import numpy as np
 import os
 import collections
+import time
 from scipy.spatial import distance as dist
 from imutils import face_utils
+import threading
+from firebase_setup import db_ref  # Import the Firebase reference
 
 # Load Dlib's face detector and landmark predictor
 detector = dlib.get_frontal_face_detector()
@@ -38,6 +41,42 @@ def play_alert():
     else:  # macOS/Linux
         os.system("afplay /System/Library/Sounds/Glass.aiff")  # macOS default sound
 
+# Firebase function to update blink count (in a separate thread)
+def update_firebase_blink_thread(user_id, blink_count, ear_value):
+    timestamp = int(time.time())  # Get current timestamp
+
+    db_ref.child(user_id).update({
+        "blinks": blink_count,
+        "last_updated": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    })
+
+    db_ref.child(user_id).child("ear_values").update({
+        str(timestamp): ear_value
+    })
+
+    print(f"✅ Updated Firebase: User={user_id}, Blinks={blink_count}, EAR={ear_value}")
+
+
+# In your main loop, call the Firebase update in a new thread
+def update_blink_count(user_id, blink_count, avg_EAR):
+    # Create a thread to handle the Firebase update
+    update_thread = threading.Thread(target=update_firebase_blink_thread, args=(user_id, blink_count, avg_EAR))
+    update_thread.start()
+
+# Firebase function to get the latest blink count
+def get_latest_blink_count(user_id):
+    data = db_ref.child(user_id).get()
+    if data and "blinks" in data:
+        return data["blinks"]
+    return 0
+
+# Firebase real-time listener (optional)
+def stream_handler(event):
+    print(f"🔥 Realtime Update: {event.data}")
+
+# Uncomment this line if you want real-time updates:
+# db_ref.listen(stream_handler)
+
 # Landmark indices for eyes
 (lStart, lEnd) = face_utils.FACIAL_LANDMARKS_IDXS["left_eye"]
 (rStart, rEnd) = face_utils.FACIAL_LANDMARKS_IDXS["right_eye"]
@@ -50,13 +89,24 @@ blink_count = 0
 frame_counter = 0
 frame_count = 0
 
+# Initialize avg_EAR to a default value (for the first frame)
+avg_EAR = 0.0  # You can adjust this default value if needed
+
 # Start webcam feed
 cap = cv2.VideoCapture(0)
+
+# Check if the camera opened successfully
+if not cap.isOpened():
+    print("Error: Could not open camera.")
+    exit()
+
 prev_face = None
+user_id = "user_123"  # Change this to match different users
 
 while True:
     ret, frame = cap.read()
     if not ret:
+        print("Failed to grab frame.")
         break
 
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -97,6 +147,7 @@ while True:
         else:
             if frame_counter >= CONSEC_FRAMES:
                 blink_count += 1
+                update_blink_count(user_id, blink_count, avg_EAR)  # Use threaded update
             frame_counter = 0  # Reset counter
 
     # Display blink count
@@ -104,12 +155,9 @@ while True:
                 cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255), 3)
 
     # EAR Progress Bar Visualization
-    bar_length = int(avg_EAR * 200)  # Scale EAR value for better visibility
-    cv2.rectangle(frame, (10, 50), (10 + bar_length, 70), (0, 255, 0), -1)
-
-    # Alert if blink count is too low
-    # if blink_count < 3 and frame_count > 300:  # Check after ~10 seconds
-    #    play_alert()
+    if avg_EAR > 0:  # Ensure avg_EAR has been calculated
+        bar_length = int(avg_EAR * 200)  # Scale EAR value for better visibility
+        cv2.rectangle(frame, (10, 50), (10 + bar_length, 70), (0, 255, 0), -1)
 
     cv2.imshow("Eye Blink Tracker", frame)
 
