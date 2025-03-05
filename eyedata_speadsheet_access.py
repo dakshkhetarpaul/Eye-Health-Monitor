@@ -108,6 +108,17 @@ while True:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         data.append([timestamp, blink_count, state])
 
+    # Calculate blink rate
+    elapsed_time = (time.time() - last_state_time) / 60  # Convert to minutes
+    if elapsed_time > 0:
+        blink_rate = blink_count / elapsed_time
+    else:
+        blink_rate = 0
+
+    # Check for low blink rate and play a warning sound
+    if blink_rate < 20:
+        winsound.Beep(1500, 500)  # Higher pitch warning beep
+    
     # Show the resulting frame
     cv2.imshow("Frame", frame)
 
