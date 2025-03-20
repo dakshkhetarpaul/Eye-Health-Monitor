@@ -5,21 +5,24 @@ from scipy.spatial import distance as dist
 from imutils import face_utils
 import time
 import pandas as pd
-import winsound  # Windows sound library (for sound alerts)
+import winsound
 from datetime import datetime
+
+# Import Firebase reference from your setup file
+from firebase_setup import db_ref  # Assuming firebase_setup.py is in the same directory
 
 # Load the facial landmark detector
 detector = dlib.get_frontal_face_detector()
-predictor = dlib.shape_predictor(r"d:\Capstone_Stuff\myenv\Scripts\shape_predictor_68_face_landmarks.dat") #CHANGE FILE PATH BASED ON YOUR SYSTEM
+predictor = dlib.shape_predictor(r"d:\Capstone_Stuff\myenv\Scripts\shape_predictor_68_face_landmarks.dat")
 
 # Initialize variables
 blink_count = 0
-state = None  # Start with no state
+state = None
 last_state_change_time = time.time()
 
 # Define constants
-EAR_THRESHOLD = 0.25  # Eye Aspect Ratio threshold for blink detection
-STATE_HOLD_TIME = 5  # 5 seconds of same state
+EAR_THRESHOLD = 0.25
+STATE_HOLD_TIME = 5
 
 # Function to compute Eye Aspect Ratio (EAR)
 def eye_aspect_ratio(eye):
@@ -30,10 +33,13 @@ def eye_aspect_ratio(eye):
 
 # Initialize video capture
 cap = cv2.VideoCapture(0)
-cap.set(cv2.CAP_PROP_FPS, 30)  # Try to improve frame rate
+cap.set(cv2.CAP_PROP_FPS, 30)
 
 # Initialize an empty list to store the data for the spreadsheet
 data = []
+
+# Generate a unique session ID for this run
+session_id = datetime.now().strftime("%Y%m%d%H%M%S")
 
 while True:
     ret, frame = cap.read()
@@ -68,8 +74,8 @@ while True:
     # Check if state has remained the same for 5+ seconds
     if current_state is not None and current_state == state:
         if time.time() - last_state_change_time >= STATE_HOLD_TIME:
-            winsound.Beep(1000, 500)  # Play sound
-            last_state_change_time = time.time()  # Reset timer
+            winsound.Beep(1000, 500)
+            last_state_change_time = time.time()
     else:
         last_state_change_time = time.time()
     
@@ -80,6 +86,17 @@ while True:
     cv2.putText(frame, f'State: {state}', (frame.shape[1] - 150, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
     
     cv2.imshow("Frame", frame)
+    
+    # Prepare data for Firebase
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    data_entry = {
+        "Date": timestamp.split()[0],  # Extract date (e.g., "2023-10-10")
+        "Time": timestamp.split()[1],  # Extract time (e.g., "12:30:45")
+        "State": state  # 0 (eyes open) or 1 (blink)
+    }
+    
+    # Push data to Firebase under the session ID
+    db_ref.child(session_id).push(data_entry)
     
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
@@ -92,4 +109,3 @@ df.to_excel(file_path, index=False)
 # Cleanup
 cap.release()
 cv2.destroyAllWindows()
-
