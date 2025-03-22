@@ -104,9 +104,9 @@ while True:
         break
 
 # Save the collected data to an Excel file
-file_path = r'd:\Capstone_Stuff\myenv\Scripts\blink_data.xlsx'
-df = pd.DataFrame(data, columns=['Timestamp', 'Blink Count', 'State'])
-df.to_excel(file_path, index=False)
+#file_path = r'd:\Capstone_Stuff\myenv\Scripts\blink_data.xlsx'
+#df = pd.DataFrame(data, columns=['Timestamp', 'Blink Count', 'State'])
+#df.to_excel(file_path, index=False)
 
 # Cleanup
 cap.release()
