@@ -1,11 +1,12 @@
 import cv2
 import dlib
+import os
 import numpy as np
 from scipy.spatial import distance as dist
 from imutils import face_utils
 import time
 import pandas as pd
-import winsound
+#import winsound
 from datetime import datetime
 
 # Import Firebase reference from your setup file
@@ -13,8 +14,7 @@ from firebase_setup import db_ref  # Assuming firebase_setup.py is in the same d
 
 # Load the facial landmark detector
 detector = dlib.get_frontal_face_detector()
-predictor = dlib.shape_predictor(r"d:\Capstone_Stuff\myenv\Scripts\shape_predictor_68_face_landmarks.dat")
-
+predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
 # Initialize variables
 blink_count = 0
 state = None
@@ -39,7 +39,8 @@ cap.set(cv2.CAP_PROP_FPS, 30)
 data = []
 
 # Generate a unique session ID for this run
-session_id = datetime.now().strftime("%Y%m%d%H%M%S")
+#session_id = datetime.now().strftime("%Y%m%d%H%M%S")
+session_id = "sample_data2"
 
 while True:
     ret, frame = cap.read()
@@ -73,8 +74,8 @@ while True:
 
     # Check if state has remained the same for 5+ seconds
     if current_state is not None and current_state == state:
-        if time.time() - last_state_change_time >= STATE_HOLD_TIME:
-            winsound.Beep(1000, 500)
+       if time.time() - last_state_change_time >= STATE_HOLD_TIME:
+            os.system('echo -n "\a";')
             last_state_change_time = time.time()
     else:
         last_state_change_time = time.time()
@@ -89,14 +90,21 @@ while True:
     
     # Prepare data for Firebase
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    data_entry = {
+ 
+
+    data_entry = None
+    if state is not None:
+        data_entry = {
         "Date": timestamp.split()[0],  # Extract date (e.g., "2023-10-10")
         "Time": timestamp.split()[1],  # Extract time (e.g., "12:30:45")
-        "State": state  # 0 (eyes open) or 1 (blink)
+        "State": int(state)  # Convert to integer to ensure it's a valid value
     }
-    
     # Push data to Firebase under the session ID
-    db_ref.child(session_id).push(data_entry)
+    
+    try:
+        db_ref.child(session_id).push(data_entry)
+    except Exception as e:
+        print(f"Error uploading to Firebase: {e}")
     
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
