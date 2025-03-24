@@ -1,5 +1,6 @@
 Important - don't use winsound, use only the libraries that are universally compatible
 latest file in use is optimized.py
+
 Tasks:
 1. Sound system - 3 blinks in 10 seconds
 2. bad sound alert - when status is none ie no eyes in frame
