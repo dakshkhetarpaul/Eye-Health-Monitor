@@ -8,6 +8,7 @@ import time
 import pandas as pd
 #import winsound
 from datetime import datetime
+from picamera2 import Picamera2
 
 # Import Firebase reference from your setup file
 from firebase_setup import db_ref  # Assuming firebase_setup.py is in the same directory
@@ -31,9 +32,13 @@ def eye_aspect_ratio(eye):
     C = dist.euclidean(eye[0], eye[3])
     return (A + B) / (2.0 * C)
 
+
+picam2 = Picamera2()
+picam2.configure(picam2.create_preview_configuration())
+picam2.start()
 # Initialize video capture
-cap = cv2.VideoCapture(0)
-cap.set(cv2.CAP_PROP_FPS, 30)
+ #cap = cv2.VideoCapture(0)
+ # for f4rame rate cap.set(cv2.CAP_PROP_FPS, 30) 
 
 # Initialize an empty list to store the data for the spreadsheet
 data = []
@@ -43,9 +48,11 @@ data = []
 session_id = "sample_data2"
 
 while True:
-    ret, frame = cap.read()
-    if not ret:
-        break
+    frame_rgb = picam2.capture_array()
+    frame = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
+    # ret, frame = cap.read()
+    # if not ret:
+        # break
 
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     faces = detector(gray)
@@ -114,6 +121,5 @@ while True:
 #df = pd.DataFrame(data, columns=['Timestamp', 'Blink Count', 'State'])
 #df.to_excel(file_path, index=False)
 
-# Cleanup
-cap.release()
+# Cleanup cap.release()
 cv2.destroyAllWindows()
