@@ -59,7 +59,9 @@ def eye_aspect_ratio(eye):
     return (A + B) / (2.0 * C)
 
 cap = cv2.VideoCapture(0)
-session_id = "blink_monitoring_" + datetime.now().strftime("%Y%m%d_%H%M%S")
+#session_id = "blink_monitoring_" + datetime.now().strftime("%Y%m%d_%H%M%S")
+session_id = "sample_data3"
+
 
 while True:
     ret, frame = cap.read()
