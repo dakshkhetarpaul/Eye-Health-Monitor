@@ -8,7 +8,7 @@ from datetime import datetime
 from firebase_setup import db_ref
 import platform
 import threading
-import sounddevice as sd  # Cross-platform audio playback
+import sounddevice as sd
 import warnings
 
 # Suppress ALSA warnings on Linux
@@ -20,7 +20,7 @@ def play_sound(alert_type):
         t = np.linspace(0, duration, int(sample_rate * duration), False)
         wave = volume * np.sin(2 * np.pi * freq * t)
         return wave
-    
+
     def _play_beep(freq, duration):
         try:
             sound = _generate_beep(freq, duration)
@@ -29,8 +29,14 @@ def play_sound(alert_type):
         except Exception as e:
             print(f"Sound failed: {e}")
 
-    sounds = {"bad": (440, 0.8), "good": (880, 0.3), "blink": (660, 0.5)}
-    
+    sounds = {
+        "bad": (440, 2.0),
+        "good": (880, 0.3),
+        "blink": (660, 0.5),
+        "stroke": (620, 1.2),
+        "drowsy": (300, 1.0)
+    }
+
     if alert_type in sounds:
         freq, duration = sounds[alert_type]
         threading.Thread(target=_play_beep, args=(freq, duration), daemon=True).start()
@@ -49,8 +55,9 @@ alert_cooldown = 2  # Seconds between alerts
 
 # Constants
 EAR_THRESHOLD = 0.25
-MIN_BLINKS = 2  # Adjusted from 3 to 2
-MONITOR_WINDOW = 10
+MAX_BLINKS = 10  # For stroke risk
+MIN_BLINKS = 2   # For drowsiness risk
+MONITOR_WINDOW = 10  # Seconds
 
 def eye_aspect_ratio(eye):
     A = dist.euclidean(eye[1], eye[5])
@@ -59,7 +66,7 @@ def eye_aspect_ratio(eye):
     return (A + B) / (2.0 * C)
 
 cap = cv2.VideoCapture(0)
-session_id = "blink_monitoring_" + datetime.now().strftime("%Y%m%d_%H%M%S")
+session_id = "sample_data3"
 
 while True:
     ret, frame = cap.read()
@@ -68,10 +75,10 @@ while True:
 
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     faces = detector(gray)
-    
+
     current_state = None
     current_time = time.time()
-    
+
     for face in faces:
         shape = predictor(gray, face)
         shape = face_utils.shape_to_np(shape)
@@ -87,31 +94,45 @@ while True:
         else:
             current_state = 0 if ear >= EAR_THRESHOLD else 1
 
-        cv2.polylines(frame, [left_eye], True, (0,255,0), 1)
-        cv2.polylines(frame, [right_eye], True, (0,255,0), 1)
+        cv2.polylines(frame, [left_eye], True, (0, 255, 0), 1)
+        cv2.polylines(frame, [right_eye], True, (0, 255, 0), 1)
 
     blink_timestamps = [t for t in blink_timestamps if current_time - t <= MONITOR_WINDOW]
-    
-    # Ensure monitoring starts only after MONITOR_WINDOW seconds
+
+    # Check both stroke (too many blinks) and drowsiness (too few blinks)
     if current_time - monitor_start_time > MONITOR_WINDOW:
-        if len(blink_timestamps) < MIN_BLINKS and current_time - last_alert_time > alert_cooldown:
-            play_sound("bad")
+        if len(blink_timestamps) > MAX_BLINKS and current_time - last_alert_time > alert_cooldown:
+            play_sound("stroke")
             last_alert_time = current_time
-            blink_timestamps = []  # Reset monitoring after alert
-            monitor_start_time = current_time  # Restart session
-    
+            blink_timestamps = []
+            monitor_start_time = current_time
+
+        elif len(blink_timestamps) < MIN_BLINKS and current_time - last_alert_time > alert_cooldown:
+            play_sound("drowsy")
+            last_alert_time = current_time
+            blink_timestamps = []
+            monitor_start_time = current_time
+
     state = current_state
-    
+
     active_blinks = len(blink_timestamps)
     window_remaining = max(0, MONITOR_WINDOW - (current_time - (blink_timestamps[0] if blink_timestamps else current_time)))
-    
-    cv2.putText(frame, f'Blinks: {blink_count}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0,255,0), 2)
-    cv2.putText(frame, f'Recent: {active_blinks}/{MIN_BLINKS}', (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0,0,255) if active_blinks < MIN_BLINKS else (0,255,0), 2)
-    cv2.putText(frame, f'Window: {int(window_remaining)}s', (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (200,200,200), 1)
-    
+
+    cv2.putText(frame, f'Blinks: {blink_count}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+    cv2.putText(frame, f'Recent: {active_blinks} (min {MIN_BLINKS} / max {MAX_BLINKS})', (10, 60),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.7,
+                (0, 0, 255) if active_blinks > MAX_BLINKS or active_blinks < MIN_BLINKS else (0, 255, 0), 2)
+    cv2.putText(frame, f'Window: {int(window_remaining)}s', (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 1)
+
     cv2.imshow("Blink Monitor", frame)
-    
+
     # Firebase upload (throttled)
+    alert_status = "normal"
+    if active_blinks > MAX_BLINKS:
+        alert_status = "alert_stroke"
+    elif active_blinks < MIN_BLINKS:
+        alert_status = "alert_drowsy"
+
     if current_time - last_alert_time > 1 and state is not None:
         try:
             db_ref.child(session_id).push({
@@ -119,7 +140,7 @@ while True:
                 "state": int(state) if state is not None else -1,
                 "blink_count": active_blinks,
                 "window_remaining": window_remaining,
-                "alert_status": "active" if active_blinks < MIN_BLINKS else "normal"
+                "alert_status": alert_status
             })
         except Exception as e:
             print(f"Firebase error: {e}")
