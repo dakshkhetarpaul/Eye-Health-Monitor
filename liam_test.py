@@ -140,10 +140,10 @@ while True:
     if current_time - last_alert_time > 1 and state is not None:
         try:
             now = datetime.now()
-            formatted_time = now.strftime('%H%M%S')
+            formatted_time = now.strftime('%H%M%S%f')
             formatted_date = now.strftime('%Y%m%d')
-            random_number = random.randint(100, 999)
-            custom_key = f"S{formatted_time}_{formatted_date}_{random_number}"
+            
+            custom_key = f"S{formatted_time}_{formatted_date}"
 
             db_ref.child(session_id).update({
                 custom_key:{
