@@ -4,12 +4,15 @@ import numpy as np
 from scipy.spatial import distance as dist
 from imutils import face_utils
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from firebase_setup import db_ref
 import platform
 import threading
 import sounddevice as sd
 import warnings
+import random
+
+
 
 # Suppress ALSA warnings on Linux
 warnings.filterwarnings('ignore', message='PySoundFile failed. Trying audioread instead.')
@@ -66,7 +69,7 @@ def eye_aspect_ratio(eye):
     return (A + B) / (2.0 * C)
 
 cap = cv2.VideoCapture(0)
-session_id = "sample_data3"
+session_id = "sample_data4"
 #session_id = "blink_monitoring_" + datetime.now().strftime("%Y%m%d_%H%M%S")
 
 while True:
@@ -136,12 +139,20 @@ while True:
 
     if current_time - last_alert_time > 1 and state is not None:
         try:
-            db_ref.child(session_id).push({
+            now = datetime.now()
+            formatted_time = now.strftime('%H%M%S')
+            formatted_date = now.strftime('%Y%m%d')
+            random_number = random.randint(100, 999)
+            custom_key = f"S{formatted_time}_{formatted_date}_{random_number}"
+
+            db_ref.child(session_id).update({
+                custom_key:{
                 "timestamp": datetime.now().isoformat(),
                 "state": int(state) if state is not None else -1,
                 "blink_count": active_blinks,
                 "window_remaining": window_remaining,
                 "alert_status": alert_status
+                }
             })
         except Exception as e:
             print(f"Firebase error: {e}")
