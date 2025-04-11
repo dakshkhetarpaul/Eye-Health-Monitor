@@ -58,9 +58,9 @@ alert_cooldown = 2  # Seconds between alerts
 
 # Constants
 EAR_THRESHOLD = 0.25
-MAX_BLINKS = 10  # For stroke risk
-MIN_BLINKS = 2   # For drowsiness risk
-MONITOR_WINDOW = 10  # Seconds
+MAX_BLINKS = 20  # For stroke risk
+MIN_BLINKS = 4   # For drowsiness risk
+MONITOR_WINDOW = 20  # Seconds
 
 def eye_aspect_ratio(eye):
     A = dist.euclidean(eye[1], eye[5])
