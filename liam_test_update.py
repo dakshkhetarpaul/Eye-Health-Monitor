@@ -56,7 +56,7 @@ alert_cooldown = 2  # Seconds between alerts
 
 # Constants
 EAR_THRESHOLD = 0.25
-MAX_BLINKS = 20  # For stroke risk
+MAX_BLINKS = 15  # For stroke risk
 MIN_BLINKS = 4   # For drowsiness risk
 MONITOR_WINDOW = 20  # Seconds
 CONSEC_FRAMES_THRESHOLD = 1  # Minimum frames for a valid blink
@@ -116,15 +116,24 @@ while True:
     window_remaining = max(0, MONITOR_WINDOW - time_since_session_start)
 
     # End of session logic
+    
     if time_since_session_start >= MONITOR_WINDOW:
         if active_blinks > MAX_BLINKS and current_time - last_alert_time > alert_cooldown:
             play_sound("stroke")
             last_alert_time = current_time
+            alert_status = "alert_stroke"
+            blink_timestamps = []
+            monitor_start_time = current_time
         elif active_blinks < MIN_BLINKS and current_time - last_alert_time > alert_cooldown:
             play_sound("drowsy")
             last_alert_time = current_time
-        blink_timestamps = []
-        monitor_start_time = current_time
+            alert_status = "alert_drowsy"
+            blink_timestamps = []
+            monitor_start_time = current_time
+        else:
+         blink_timestamps = []
+         monitor_start_time = current_time
+         alert_status = "normal"
 
     state = current_state
 
@@ -136,11 +145,7 @@ while True:
 
     cv2.imshow("Blink Monitor", frame)
 
-    alert_status = "normal"
-    if active_blinks > MAX_BLINKS:
-        alert_status = "alert_stroke"
-    elif active_blinks < MIN_BLINKS:
-        alert_status = "alert_drowsy"
+    
 
     if current_time - last_alert_time > 1 and state is not None:
         try:
