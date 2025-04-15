@@ -75,6 +75,7 @@ cap = cv2.VideoCapture(0)
 session_id = "sample_data4"
 
 while True:
+    eyes_detected = False
     ret, frame = cap.read()
     if not ret:
         break
@@ -84,6 +85,7 @@ while True:
 
     current_state = None
     current_time = time.time()
+    
 
     for face in faces:
         shape = predictor(gray, face)
@@ -108,6 +110,7 @@ while True:
 
         cv2.polylines(frame, [left_eye], True, (0, 255, 0), 1)
         cv2.polylines(frame, [right_eye], True, (0, 255, 0), 1)
+        eyes_detected = True
 
     blink_timestamps = [t for t in blink_timestamps if current_time - t <= MONITOR_WINDOW]
 
@@ -118,22 +121,27 @@ while True:
     # End of session logic
     
     if time_since_session_start >= MONITOR_WINDOW:
-        if active_blinks > MAX_BLINKS and current_time - last_alert_time > alert_cooldown:
-            play_sound("stroke")
-            last_alert_time = current_time
-            alert_status = "alert_stroke"
+        if not eyes_detected:
+            alert_status = "no_eyes_detected"
+            monitor_start_time = current_time  # don't process the window, just reset
             blink_timestamps = []
-            monitor_start_time = current_time
-        elif active_blinks < MIN_BLINKS and current_time - last_alert_time > alert_cooldown:
-            play_sound("drowsy")
-            last_alert_time = current_time
-            alert_status = "alert_drowsy"
-            blink_timestamps = []
-            monitor_start_time = current_time
         else:
-         blink_timestamps = []
-         monitor_start_time = current_time
-         alert_status = "normal"
+          if active_blinks > MAX_BLINKS and current_time - last_alert_time > alert_cooldown:
+             play_sound("stroke")
+             last_alert_time = current_time
+             alert_status = "alert_stroke"
+             blink_timestamps = []
+             monitor_start_time = current_time
+          elif active_blinks < MIN_BLINKS and current_time - last_alert_time > alert_cooldown:
+             play_sound("drowsy")
+             last_alert_time = current_time
+             alert_status = "alert_drowsy"
+             blink_timestamps = []
+             monitor_start_time = current_time
+          else:
+             blink_timestamps = []
+             monitor_start_time = current_time
+             alert_status = "normal"
 
     state = current_state
 
