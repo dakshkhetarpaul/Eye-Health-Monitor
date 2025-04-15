@@ -1,3 +1,4 @@
+
 import cv2
 import dlib
 import numpy as np
@@ -34,8 +35,8 @@ def play_sound(alert_type):
         "bad": (440, 2.0),
         "good": (880, 0.3),
         "blink": (660, 0.5),
-        "stroke": (620, 1.2),
-        "drowsy": (300, 1.0)
+        "stroke": (1000, 3.0),
+        "drowsy": (400, 2.0)
     }
 
     if alert_type in sounds:
@@ -56,7 +57,7 @@ alert_cooldown = 2  # Seconds between alerts
 
 # Constants
 EAR_THRESHOLD = 0.25
-MAX_BLINKS = 20  # For stroke risk
+MAX_BLINKS = 10  # For stroke risk
 MIN_BLINKS = 4   # For drowsiness risk
 MONITOR_WINDOW = 20  # Seconds
 CONSEC_FRAMES_THRESHOLD = 1  # Minimum frames for a valid blink
@@ -115,12 +116,16 @@ while True:
     time_since_session_start = current_time - monitor_start_time
     window_remaining = max(0, MONITOR_WINDOW - time_since_session_start)
 
+    # Immediate stroke alert if max blinks exceeded
+    if active_blinks > MAX_BLINKS and current_time - last_alert_time > alert_cooldown:
+        play_sound("stroke")
+        last_alert_time = current_time
+        blink_timestamps = []
+        monitor_start_time = current_time
+
     # End of session logic
     if time_since_session_start >= MONITOR_WINDOW:
-        if active_blinks > MAX_BLINKS and current_time - last_alert_time > alert_cooldown:
-            play_sound("stroke")
-            last_alert_time = current_time
-        elif active_blinks < MIN_BLINKS and current_time - last_alert_time > alert_cooldown:
+        if active_blinks < MIN_BLINKS and current_time - last_alert_time > alert_cooldown:
             play_sound("drowsy")
             last_alert_time = current_time
         blink_timestamps = []
