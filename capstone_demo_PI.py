@@ -1,3 +1,4 @@
+
 import cv2
 import dlib
 import numpy as np
@@ -72,18 +73,13 @@ def eye_aspect_ratio(eye):
     C = dist.euclidean(eye[0], eye[3])
     return (A + B) / (2.0 * C)
 
-#cap = cv2.VideoCapture(0)
 picam2 = Picamera2()
 picam2.configure(picam2.create_preview_configuration())
 picam2.start()
 session_id = "sample_data4"
 
-
 while True:
     eyes_detected = False
-    #ret, frame = cap.read()
-    #if not ret:
-        #break
     frame_rgb = picam2.capture_array()
     frame = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
 
@@ -92,7 +88,6 @@ while True:
 
     current_state = None
     current_time = time.time()
-    
 
     for face in faces:
         shape = predictor(gray, face)
@@ -125,30 +120,31 @@ while True:
     time_since_session_start = current_time - monitor_start_time
     window_remaining = max(0, MONITOR_WINDOW - time_since_session_start)
 
+    # Immediate stroke alert if max blinks reached
+    if active_blinks >= MAX_BLINKS and current_time - last_alert_time > alert_cooldown:
+        play_sound("stroke")
+        last_alert_time = current_time
+        alert_status = "alert_stroke"
+        blink_timestamps = []
+        monitor_start_time = current_time
+
     # End of session logic
-    
-    if time_since_session_start >= MONITOR_WINDOW:
+    elif time_since_session_start >= MONITOR_WINDOW:
         if not eyes_detected:
             alert_status = "no_eyes_detected"
-            monitor_start_time = current_time  # don't process the window, just reset
+            monitor_start_time = current_time
             blink_timestamps = []
         else:
-          if active_blinks > MAX_BLINKS and current_time - last_alert_time > alert_cooldown:
-             play_sound("stroke")
-             last_alert_time = current_time
-             alert_status = "alert_stroke"
-             blink_timestamps = []
-             monitor_start_time = current_time
-          elif active_blinks < MIN_BLINKS and current_time - last_alert_time > alert_cooldown:
-             play_sound("drowsy")
-             last_alert_time = current_time
-             alert_status = "alert_drowsy"
-             blink_timestamps = []
-             monitor_start_time = current_time
-          else:
-             blink_timestamps = []
-             monitor_start_time = current_time
-             alert_status = "normal"
+            if active_blinks < MIN_BLINKS and current_time - last_alert_time > alert_cooldown:
+                play_sound("drowsy")
+                last_alert_time = current_time
+                alert_status = "alert_drowsy"
+                blink_timestamps = []
+                monitor_start_time = current_time
+            else:
+                blink_timestamps = []
+                monitor_start_time = current_time
+                alert_status = "normal"
 
     state = current_state
 
@@ -159,8 +155,6 @@ while True:
     cv2.putText(frame, f'Window: {int(window_remaining)}s', (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 1)
 
     cv2.imshow("Blink Monitor", frame)
-
-    
 
     if current_time - last_alert_time > 1 and state is not None:
         try:
@@ -185,5 +179,4 @@ while True:
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
-# cap.release()
 cv2.destroyAllWindows()

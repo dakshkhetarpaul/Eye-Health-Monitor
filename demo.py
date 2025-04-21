@@ -85,7 +85,6 @@ while True:
 
     current_state = None
     current_time = time.time()
-    
 
     for face in faces:
         shape = predictor(gray, face)
@@ -113,35 +112,34 @@ while True:
         eyes_detected = True
 
     blink_timestamps = [t for t in blink_timestamps if current_time - t <= MONITOR_WINDOW]
-
     active_blinks = len(blink_timestamps)
     time_since_session_start = current_time - monitor_start_time
     window_remaining = max(0, MONITOR_WINDOW - time_since_session_start)
 
-    # End of session logic
-    
-    if time_since_session_start >= MONITOR_WINDOW:
+    # 🔔 Immediate stroke alert
+    if active_blinks > MAX_BLINKS and current_time - last_alert_time > alert_cooldown:
+        play_sound("stroke")
+        last_alert_time = current_time
+        alert_status = "alert_stroke"
+        blink_timestamps = []
+        monitor_start_time = current_time  # Reset window immediately
+
+    # End-of-session logic
+    elif time_since_session_start >= MONITOR_WINDOW:
         if not eyes_detected:
             alert_status = "no_eyes_detected"
-            monitor_start_time = current_time  # don't process the window, just reset
             blink_timestamps = []
+            monitor_start_time = current_time
+        elif active_blinks < MIN_BLINKS and current_time - last_alert_time > alert_cooldown:
+            play_sound("drowsy")
+            last_alert_time = current_time
+            alert_status = "alert_drowsy"
+            blink_timestamps = []
+            monitor_start_time = current_time
         else:
-          if active_blinks > MAX_BLINKS and current_time - last_alert_time > alert_cooldown:
-             play_sound("stroke")
-             last_alert_time = current_time
-             alert_status = "alert_stroke"
-             blink_timestamps = []
-             monitor_start_time = current_time
-          elif active_blinks < MIN_BLINKS and current_time - last_alert_time > alert_cooldown:
-             play_sound("drowsy")
-             last_alert_time = current_time
-             alert_status = "alert_drowsy"
-             blink_timestamps = []
-             monitor_start_time = current_time
-          else:
-             blink_timestamps = []
-             monitor_start_time = current_time
-             alert_status = "normal"
+            alert_status = "normal"
+            blink_timestamps = []
+            monitor_start_time = current_time
 
     state = current_state
 
@@ -152,8 +150,6 @@ while True:
     cv2.putText(frame, f'Window: {int(window_remaining)}s', (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 1)
 
     cv2.imshow("Blink Monitor", frame)
-
-    
 
     if current_time - last_alert_time > 1 and state is not None:
         try:
