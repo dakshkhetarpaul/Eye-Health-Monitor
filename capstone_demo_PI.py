@@ -1,4 +1,3 @@
-
 import cv2
 import dlib
 import numpy as np
@@ -80,6 +79,10 @@ session_id = "sample_data4"
 
 while True:
     eyes_detected = False
+    #ret, frame = cap.read()
+    #if not ret:
+        #break
+
     frame_rgb = picam2.capture_array()
     frame = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
 
@@ -115,36 +118,34 @@ while True:
         eyes_detected = True
 
     blink_timestamps = [t for t in blink_timestamps if current_time - t <= MONITOR_WINDOW]
-
     active_blinks = len(blink_timestamps)
     time_since_session_start = current_time - monitor_start_time
     window_remaining = max(0, MONITOR_WINDOW - time_since_session_start)
 
-    # Immediate stroke alert if max blinks reached
-    if active_blinks >= MAX_BLINKS and current_time - last_alert_time > alert_cooldown:
+    # 🔔 Immediate stroke alert
+    if active_blinks > MAX_BLINKS and current_time - last_alert_time > alert_cooldown:
         play_sound("stroke")
         last_alert_time = current_time
         alert_status = "alert_stroke"
         blink_timestamps = []
-        monitor_start_time = current_time
+        monitor_start_time = current_time  # Reset window immediately
 
-    # End of session logic
+    # End-of-session logic
     elif time_since_session_start >= MONITOR_WINDOW:
         if not eyes_detected:
             alert_status = "no_eyes_detected"
-            monitor_start_time = current_time
             blink_timestamps = []
+            monitor_start_time = current_time
+        elif active_blinks < MIN_BLINKS and current_time - last_alert_time > alert_cooldown:
+            play_sound("drowsy")
+            last_alert_time = current_time
+            alert_status = "alert_drowsy"
+            blink_timestamps = []
+            monitor_start_time = current_time
         else:
-            if active_blinks < MIN_BLINKS and current_time - last_alert_time > alert_cooldown:
-                play_sound("drowsy")
-                last_alert_time = current_time
-                alert_status = "alert_drowsy"
-                blink_timestamps = []
-                monitor_start_time = current_time
-            else:
-                blink_timestamps = []
-                monitor_start_time = current_time
-                alert_status = "normal"
+            alert_status = "normal"
+            blink_timestamps = []
+            monitor_start_time = current_time
 
     state = current_state
 
@@ -178,5 +179,6 @@ while True:
 
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
+
 
 cv2.destroyAllWindows()
