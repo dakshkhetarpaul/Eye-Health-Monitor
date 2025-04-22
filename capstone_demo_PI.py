@@ -12,6 +12,9 @@ import sounddevice as sd
 import warnings
 import random
 from picamera2 import Picamera2
+import getpass
+
+device_name = getpass.getuser()
 
 # Suppress ALSA warnings on Linux
 warnings.filterwarnings('ignore', message='PySoundFile failed. Trying audioread instead.')
@@ -163,7 +166,7 @@ while True:
             formatted_time = now.strftime('%H%M%S%f')
             formatted_date = now.strftime('%Y%m%d')
 
-            custom_key = f"S{formatted_time}_{formatted_date}"
+            custom_key = f"S{formatted_time}_{formatted_date}-{device_name}"
 
             db_ref.child(session_id).update({
                 custom_key: {
